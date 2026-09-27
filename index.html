@@ -84,6 +84,9 @@
   .eqbar{display:flex;align-items:center;gap:8px;margin-bottom:9px;font-size:12.5px;color:#5b7784}
   .eqbar select{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:7px 9px;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--deep);background:#fff}
   .msg.warn{color:var(--high)}
+  .eqcard{background:var(--mist);border:1px solid var(--line);border-radius:11px;padding:8px 11px;margin:-2px 0 10px;font-size:12px;color:#5b7784;line-height:1.55}
+  .eqcard .f{font-size:14.5px;font-weight:700;color:var(--deep);letter-spacing:.2px}
+  .eqcard .inv{font-size:13px;color:var(--prapa);font-weight:600}
   .leaflet-popup-content{font-family:'IBM Plex Sans Thai',sans-serif;font-size:13px;line-height:1.5;color:var(--deep)}
   .pop-val{font-size:23px;font-weight:700}
   @media (min-width:640px){.sheet{left:auto;right:16px;bottom:16px;width:392px;border-radius:18px}.sheet.closed{transform:translateY(calc(100% - 60px + 16px))}}
@@ -94,7 +97,7 @@
 <div id="map"></div>
 
 <div class="topbar">
-  <div class="brand" onclick="openSettings()" title="ตั้งค่าสมการ"><b>FRCTap</b><span>v2.1 · แตะแบรนด์เพื่อตั้งค่า</span></div>
+  <div class="brand" onclick="openSettings()" title="ตั้งค่าสมการ"><b>FRCTap</b><span>v2.1.2 · แตะแบรนด์เพื่อตั้งค่า</span></div>
   <div class="statchip" id="stat">ยังไม่มีข้อมูล</div>
 </div>
 
@@ -115,6 +118,7 @@
     <div class="eqbar">สมการ
       <select id="eqSel" onchange="selectEq(this.value)"></select>
     </div>
+    <div class="eqcard" id="eqCard"></div>
 
     <label class="filebtn">
       📄 แนบไฟล์จาก Chemister (.txt) — อ่านค่าอัตโนมัติ
@@ -213,7 +217,19 @@ let CAL=eqById(EQ_ID);
 
 // ---------- แผนที่ ----------
 const map=L.map('map',{zoomControl:false}).setView([13.7563,100.5018],11);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+// แผนที่ฐาน: OSM บล็อกการเปิดจากไฟล์ในเครื่อง (file://) เพราะไม่มี Referer → ใช้ CARTO เป็นหลัก, Esri เป็นสำรอง
+const BASEMAPS=[
+  ['https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:20,attribution:'© OpenStreetMap contributors © CARTO'}],
+  ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles © Esri'}]
+];
+let baseIdx=0, baseErr=0, baseLayer=null;
+function setBase(i){
+  if(baseLayer) map.removeLayer(baseLayer);
+  baseIdx=i; baseErr=0;
+  baseLayer=L.tileLayer(BASEMAPS[i][0],BASEMAPS[i][1]).addTo(map);
+  baseLayer.on('tileerror',()=>{ if(++baseErr>4 && baseIdx+1<BASEMAPS.length) setBase(baseIdx+1); });
+}
+setBase(0);
 L.control.zoom({position:'topright'}).addTo(map);
 const layer=L.layerGroup().addTo(map);
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -382,6 +398,12 @@ function renderEqUI(){
   ia.value=e.a; ib.value=e.b; ia.disabled=ib.disabled=!editable;
   document.getElementById('customBox').style.opacity=editable?1:.55;
   showEq(e);
+  const k=CAL, sg=v=>v<0?`− ${Math.abs(v)}`:`+ ${v}`;
+  document.getElementById('eqCard').innerHTML=
+    `<div class="f">I = ${k.a} × C ${sg(k.b)}</div>`+
+    `<div class="inv">C (ppm) = (I ${sg(-k.b)}) ÷ ${k.a}</div>`+
+    (k.id==='custom'?'สมการที่กรอกเอง':`${k.strip} · โหมด${k.mode} · ใช้ได้ ${k.range[0]}–${k.range[1]} ppm · ${k.info}`)+
+    `<br>I = กระแสเฉลี่ย ${READ_WIN[0]}–${READ_WIN[1]} วินาที (µA), C = FRC (ppm)`;
   document.getElementById('modeLabel').textContent=`สมการ: ${CAL.name}`+(USE_FIREBASE&&fdb?' · เชื่อมระบบกลางแล้ว':'');
 }
 function pickEq(id){pendingEq=id;renderEqUI();}
