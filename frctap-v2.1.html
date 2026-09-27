@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>FRCTap v2 — แผนที่คลอรีนอิสระคงเหลือ</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --deep:#123B4C; --prapa:#1878A6; --mist:#EEF4F6; --line:#CBDDE4;
+    --low:#C23B2B; --ok:#1F8A70; --high:#D98E1F; --card:#FFFFFF;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{font-family:'IBM Plex Sans Thai',sans-serif;color:var(--deep);background:var(--mist);overflow:hidden}
+  #map{position:absolute;inset:0;z-index:1}
+
+  .topbar{position:absolute;top:12px;left:12px;right:12px;z-index:20;display:flex;align-items:center;gap:10px;pointer-events:none}
+  .brand{pointer-events:auto;background:var(--deep);color:#fff;border-radius:12px;padding:9px 16px;display:flex;align-items:baseline;gap:8px;box-shadow:0 2px 10px rgba(18,59,76,.25);cursor:pointer}
+  .brand b{font-size:19px;font-weight:700}
+  .brand span{font-size:12px;opacity:.75}
+  .statchip{pointer-events:auto;margin-left:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 14px;font-size:13px;line-height:1.35;box-shadow:0 2px 8px rgba(18,59,76,.12)}
+  .statchip b{font-size:15px}
+
+  .legend{position:absolute;left:12px;bottom:158px;z-index:20;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12.5px;box-shadow:0 2px 8px rgba(18,59,76,.12)}
+  .legend div{display:flex;align-items:center;gap:7px;margin:3px 0}
+  .dot{width:11px;height:11px;border-radius:50%;flex:none}
+
+  .sheet{position:absolute;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-radius:18px 18px 0 0;box-shadow:0 -4px 24px rgba(18,59,76,.18);padding:12px 16px 16px;transition:transform .25s ease;max-height:78vh;overflow-y:auto}
+  .sheet.closed{transform:translateY(calc(100% - 60px))}
+  .grip{width:44px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 8px;cursor:pointer}
+  .sheet-head{display:flex;align-items:center;gap:10px;cursor:pointer}
+  .sheet-head h2{font-size:16px;font-weight:700}
+  .sheet-head small{color:#5b7784;font-size:12px}
+  .form{display:none;margin-top:10px}
+  .sheet.open .form{display:block}
+
+  .filebtn{display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px dashed var(--prapa);background:#F4FAFD;color:var(--prapa);border-radius:12px;padding:12px;font-size:14.5px;font-weight:600;cursor:pointer;width:100%}
+  .orline{display:flex;align-items:center;gap:10px;color:#8aa2ac;font-size:12px;margin:9px 0}
+  .orline::before,.orline::after{content:'';flex:1;height:1px;background:var(--line)}
+
+  .duo{display:flex;gap:8px}
+  .field{flex:1;background:var(--mist);border:1.5px solid var(--line);border-radius:12px;padding:7px 12px}
+  .field label{font-size:11.5px;color:#5b7784;display:block}
+  .field input{width:100%;border:0;background:none;font-family:inherit;font-size:21px;font-weight:700;color:var(--deep);outline:none}
+  .field.big input{font-size:27px}
+  .field:focus-within{border-color:var(--prapa)}
+  .ppm-out{background:#E9F5F1;border-color:#BFE0D6}
+
+  .row{display:flex;gap:8px;margin-top:9px}
+  .row input[type=text]{flex:1;border:1.5px solid var(--line);border-radius:11px;padding:9px 12px;font-family:inherit;font-size:14px;color:var(--deep);outline:none;min-width:0}
+  .gps{font-size:12px;color:#5b7784;margin-top:8px;min-height:16px}
+  .gps b{color:var(--ok);font-weight:600}
+  .btns{display:flex;gap:8px;margin-top:10px}
+  button{font-family:inherit;font-size:15px;font-weight:600;border:0;border-radius:12px;padding:12px 14px;cursor:pointer}
+  .save{flex:1;background:var(--prapa);color:#fff}
+  .save:active{background:#136289}
+  .ghost{background:var(--mist);color:var(--deep);border:1.5px solid var(--line);font-size:13px;padding:9px 12px}
+  .msg{margin-top:8px;font-size:12.5px;min-height:17px;color:#5b7784}
+  .msg.err{color:var(--low)} .msg.good{color:var(--ok)}
+
+  .recent{margin-top:11px;border-top:1px solid var(--line);padding-top:8px;max-height:140px;overflow-y:auto}
+  .recent h3{font-size:12.5px;color:#5b7784;font-weight:600;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center}
+  .rrow{display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:13px;border-bottom:1px dashed #e2ecef}
+  .rrow .val{font-weight:700;width:70px}
+  .rrow .src{font-size:10px;background:var(--mist);border:1px solid var(--line);border-radius:6px;padding:1px 5px;color:#5b7784}
+  .rrow .when{margin-left:auto;color:#5b7784;font-size:11px;text-align:right}
+
+  /* settings modal */
+  .modal{position:absolute;inset:0;z-index:40;background:rgba(18,59,76,.45);display:none;align-items:center;justify-content:center;padding:20px}
+  .modal.show{display:flex}
+  .mcard{background:var(--card);border-radius:16px;padding:18px;width:100%;max-width:360px}
+  .mcard h3{font-size:16px;margin-bottom:4px}
+  .mcard p{font-size:12.5px;color:#5b7784;margin-bottom:10px}
+  .mcard .eq{font-size:13px;background:var(--mist);border-radius:9px;padding:8px 10px;margin-bottom:10px;text-align:center}
+  .eqlist{display:flex;flex-direction:column;gap:7px;margin-bottom:10px;max-height:46vh;overflow-y:auto}
+  .eqopt{display:flex;gap:10px;align-items:flex-start;border:1.5px solid var(--line);border-radius:12px;padding:9px 11px;cursor:pointer;background:#fff}
+  .eqopt input{margin-top:4px;accent-color:var(--prapa)}
+  .eqopt b{font-size:14px;display:block}
+  .eqopt span{font-size:11.5px;color:#5b7784;display:block;line-height:1.45}
+  .eqopt code{font-family:inherit;font-size:12px;color:var(--deep)}
+  .eqopt.on{border-color:var(--prapa);background:#F4FAFD}
+  .eqbar{display:flex;align-items:center;gap:8px;margin-bottom:9px;font-size:12.5px;color:#5b7784}
+  .eqbar select{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:7px 9px;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--deep);background:#fff}
+  .msg.warn{color:var(--high)}
+  .leaflet-popup-content{font-family:'IBM Plex Sans Thai',sans-serif;font-size:13px;line-height:1.5;color:var(--deep)}
+  .pop-val{font-size:23px;font-weight:700}
+  @media (min-width:640px){.sheet{left:auto;right:16px;bottom:16px;width:392px;border-radius:18px}.sheet.closed{transform:translateY(calc(100% - 60px + 16px))}}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="topbar">
+  <div class="brand" onclick="openSettings()" title="ตั้งค่าสมการ"><b>FRCTap</b><span>v2.1 · แตะแบรนด์เพื่อตั้งค่า</span></div>
+  <div class="statchip" id="stat">ยังไม่มีข้อมูล</div>
+</div>
+
+<div class="legend">
+  <div><span class="dot" style="background:var(--low)"></span>ต่ำกว่า 0.2 ppm</div>
+  <div><span class="dot" style="background:var(--ok)"></span>0.2 – 2.0 ppm</div>
+  <div><span class="dot" style="background:var(--high)"></span>สูงกว่า 2.0 ppm</div>
+</div>
+
+<div class="sheet open" id="sheet">
+  <div class="grip" onclick="toggleSheet()"></div>
+  <div class="sheet-head" onclick="toggleSheet()">
+    <h2>บันทึกผลวัด</h2>
+    <small id="modeLabel">โหมดทดลอง</small>
+  </div>
+  <div class="form">
+
+    <div class="eqbar">สมการ
+      <select id="eqSel" onchange="selectEq(this.value)"></select>
+    </div>
+
+    <label class="filebtn">
+      📄 แนบไฟล์จาก Chemister (.txt) — อ่านค่าอัตโนมัติ
+      <input type="file" accept=".txt,text/plain" style="display:none" onchange="readChemister(this.files[0])">
+    </label>
+
+    <div class="orline">หรือกรอกเอง</div>
+
+    <div class="duo">
+      <div class="field">
+        <label>กระแสจากแอป (µA)</label>
+        <input id="ua" type="number" step="0.001" inputmode="decimal" placeholder="-0.230" oninput="uaToPpm()">
+      </div>
+      <div class="field big ppm-out">
+        <label>FRC (ppm)</label>
+        <input id="frc" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00">
+      </div>
+    </div>
+
+    <div class="duo" style="margin-top:8px">
+      <div class="field">
+        <label>DPD เทียบ (ppm) — ถ้ามี</label>
+        <input id="dpd" type="number" step="0.01" min="0" inputmode="decimal" placeholder="—">
+      </div>
+      <div class="field" style="flex:1.4">
+        <label>จุดเก็บตัวอย่าง</label>
+        <input id="note" type="text" style="font-size:15px;font-weight:600" placeholder="เช่น ปลายท่อ ซ.15">
+      </div>
+    </div>
+
+    <div class="gps" id="gps">กำลังหาพิกัด…</div>
+    <div class="btns">
+      <button class="save" onclick="saveReading()">บันทึกลงแผนที่</button>
+    </div>
+    <div class="msg" id="msg"></div>
+
+    <div class="recent">
+      <h3>บันทึกล่าสุด <button class="ghost" onclick="downloadCSV()">⬇ CSV</button></h3>
+      <div id="rlist"><div style="font-size:12.5px;color:#5b7784">แนบไฟล์หรือกรอกค่า แล้วบันทึก — จุดแรกของแผนที่รออยู่</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="settings">
+  <div class="mcard">
+    <h3>สมการ Calibration</h3>
+    <p>I (µA) = a × C (ppm) + b — เลือกสมการให้ตรงกับแผ่นและวิธีเติมตัวอย่างที่ใช้วัด</p>
+    <div class="eqlist" id="eqList"></div>
+    <div class="duo" id="customBox">
+      <div class="field"><label>a (ความชัน)</label><input id="cal_a" type="number" step="0.0001"></div>
+      <div class="field"><label>b (จุดตัด)</label><input id="cal_b" type="number" step="0.0001"></div>
+    </div>
+    <div class="eq" id="eqShow" style="margin-top:10px"></div>
+    <div class="btns" style="margin-top:4px">
+      <button class="save" onclick="saveCal()">บันทึกสมการ</button>
+      <button class="ghost" onclick="document.getElementById('settings').classList.remove('show')">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ============================================================
+   FRCTap v2.1 — 27 ก.ย. 2569 : เพิ่มตัวเลือกสมการ (บางเขน / มหาสวัสดิ์ หยด / จุ่ม / กำหนดเอง),
+   เตือนค่านอกช่วง, บันทึกชื่อสมการคู่กับแต่ละจุด (popup + CSV)
+   FRCTap v2 — 25 ก.ย. 2569
+   ใหม่: สมการ calibration ฝังในตัว (แก้ได้), กรอก µA → ppm อัตโนมัติ,
+   แนบไฟล์ Chemister .txt (CA) → อ่านเฉลี่ยหน้าต่าง 8-12 s เอง,
+   ช่อง DPD สำหรับด่าน 4, ดาวน์โหลด CSV
+   Firebase: ใส่ config แล้วสลับ USE_FIREBASE = true (โครงเดิม v1)
+   ============================================================ */
+const USE_FIREBASE=false;
+const FIREBASE_CONFIG={};
+const DB_PATH="frctap_readings";
+const READ_WIN=[8,12];                          // หน้าต่างอ่านค่า (วินาที)
+
+// ---------- ชุดสมการ (เพิ่มสมการใหม่ต่อท้ายรายการนี้) ----------
+const EQUATIONS=[
+  {id:'bk25',   name:'บางเขน · 25 ก.ย. 69', a:-0.1392, b:-0.0777, mode:'หยด', strip:'แผ่น #1',
+   range:[0,1.6],  info:'R² 0.959 · 8 ระดับ วัดเดี่ยวต่อระดับ'},
+  {id:'ms27drop',name:'มหาสวัสดิ์ หยด · 27 ก.ย. 69', a:-0.0906, b:-0.0361, mode:'หยด', strip:'แผ่นที่ใช้ 27 ก.ย.',
+   range:[0.14,0.49], info:'R² 0.89 · n = 12 · ยังไม่ผ่านการทดสอบข้ามวัน'},
+  {id:'ms27dip', name:'มหาสวัสดิ์ จุ่ม · 27 ก.ย. 69', a:-0.0930, b:-0.0238, mode:'จุ่ม', strip:'แผ่นที่ใช้ 27 ก.ย.',
+   range:[0.14,0.49], info:'R² 0.89 · n = 8 · ยังไม่ผ่านการทดสอบข้ามวัน'}
+];
+const DEFAULT_EQ='bk25';
+
+let customCal=JSON.parse(localStorage.getItem('frctap_cal')||'null');
+let EQ_ID=localStorage.getItem('frctap_eq')||(customCal&&(customCal.a!==-0.1392||customCal.b!==-0.0777)?'custom':DEFAULT_EQ);
+if(!customCal) customCal={a:-0.1392,b:-0.0777};
+function eqById(id){
+  if(id==='custom') return {id:'custom',name:'กำหนดเอง',a:customCal.a,b:customCal.b,mode:'-',strip:'-',range:null,info:'ค่าที่กรอกเอง'};
+  return EQUATIONS.find(e=>e.id===id)||EQUATIONS[0];
+}
+let CAL=eqById(EQ_ID);
+
+// ---------- แผนที่ ----------
+const map=L.map('map',{zoomControl:false}).setView([13.7563,100.5018],11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+L.control.zoom({position:'topright'}).addTo(map);
+const layer=L.layerGroup().addTo(map);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const colorOf=v=>v<0.2?css('--low'):(v<=2.0?css('--ok'):css('--high'));
+const fmtT=ts=>new Date(ts).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+
+function drawAll(list){
+  layer.clearLayers();
+  list.forEach(r=>{
+    L.circleMarker([r.lat,r.lng],{radius:9,color:'#fff',weight:2,fillColor:colorOf(r.frc),fillOpacity:.92})
+     .bindPopup(`<div class="pop-val" style="color:${colorOf(r.frc)}">${r.frc.toFixed(2)} <small style="font-size:12px">ppm</small></div>`+
+       (r.ua!=null?`กระแส ${r.ua.toFixed(3)} µA<br>`:'')+
+       (r.dpd!=null?`DPD ${r.dpd.toFixed(2)} ppm (Δ ${(r.frc-r.dpd>=0?'+':'')}${(r.frc-r.dpd).toFixed(2)})<br>`:'')+
+       (r.eq?`<span style="color:#5b7784">สมการ: ${r.eq}</span><br>`:'')+
+       `${r.note?r.note+'<br>':''}<span style="color:#5b7784">${fmtT(r.ts)}</span>`).addTo(layer);
+  });
+  const el=document.getElementById('stat');
+  if(!list.length){el.textContent='ยังไม่มีข้อมูล';}
+  else{
+    const avg=list.reduce((s,r)=>s+r.frc,0)/list.length, low=list.filter(r=>r.frc<0.2).length;
+    el.innerHTML=`<b>${list.length}</b> จุด · เฉลี่ย <b>${avg.toFixed(2)}</b> ppm`+(low?` · ต่ำกว่าเกณฑ์ <b style="color:var(--low)">${low}</b>`:'');
+  }
+  const box=document.getElementById('rlist');
+  if(list.length) box.innerHTML=list.slice(-6).reverse().map(r=>
+    `<div class="rrow"><span class="dot" style="background:${colorOf(r.frc)}"></span>`+
+    `<span class="val">${r.frc.toFixed(2)} ppm</span><span class="src">${r.src}</span>`+
+    `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.note||''}</span>`+
+    `<span class="when">${fmtT(r.ts)}</span></div>`).join('');
+}
+
+// ---------- เก็บข้อมูล ----------
+let readings=[]; let fdb=null;
+function initStore(){
+  if(USE_FIREBASE){
+    const s1=document.createElement('script');s1.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
+    const s2=document.createElement('script');s2.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js';
+    s1.onload=()=>document.head.appendChild(s2);
+    s2.onload=()=>{firebase.initializeApp(FIREBASE_CONFIG);fdb=firebase.database().ref(DB_PATH);
+      fdb.on('value',s=>{readings=Object.values(s.val()||{});drawAll(readings);});
+      renderEqUI();};
+    document.head.appendChild(s1);
+  }else{
+    readings=JSON.parse(localStorage.getItem(DB_PATH)||'[]');
+    drawAll(readings);
+    if(readings.length) map.fitBounds(readings.map(r=>[r.lat,r.lng]),{padding:[60,60],maxZoom:15});
+  }
+}
+function persist(r){
+  if(USE_FIREBASE&&fdb){fdb.push(r);}
+  else{readings.push(r);localStorage.setItem(DB_PATH,JSON.stringify(readings));drawAll(readings);}
+}
+
+// ---------- GPS ----------
+let here=null;
+(function(){
+  const el=document.getElementById('gps');
+  if(!navigator.geolocation){el.textContent='ไม่รองรับพิกัด — จะปักหมุดกลางแผนที่';return;}
+  navigator.geolocation.watchPosition(p=>{
+    here={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy};
+    el.innerHTML=`พิกัดพร้อม <b>±${Math.round(here.acc)} ม.</b>`;
+  },()=>{el.textContent='ขอพิกัดไม่ได้ — ลากแผนที่ไปจุดวัดแล้วบันทึก';},{enableHighAccuracy:true,maximumAge:5000});
+})();
+
+// ---------- แปลง µA → ppm ----------
+let lastSrc='มือ', lastUA=null;
+function uaToPpm(){
+  const ua=parseFloat(document.getElementById('ua').value);
+  if(isNaN(ua)) return;
+  lastUA=ua; lastSrc='µA';
+  applyConc(ua);
+}
+function convert(ua){return (ua-CAL.b)/CAL.a;}
+function applyConc(ua,prefix){
+  const c=convert(ua), msg=document.getElementById('msg');
+  document.getElementById('frc').value=Math.max(0,c).toFixed(2);
+  const r=CAL.range; let warn='';
+  if(c<0) warn='ค่าติดลบ — กระแสน้อยกว่าจุดตัดของสมการ ตรวจว่าเลือกสมการถูกแผ่นหรือไม่';
+  else if(r&&(c<r[0]-0.05||c>r[1]+0.05)) warn=`นอกช่วงที่สมการนี้ใช้ได้ (${r[0]}–${r[1]} ppm) — ค่าอาจคลาดมาก`;
+  if(warn){msg.className='msg warn';msg.textContent=(prefix?prefix+' · ':'')+warn;}
+  else if(prefix){msg.className='msg good';msg.textContent=prefix;}
+  else{msg.className='msg';msg.textContent='';}
+  return c;
+}
+
+// ---------- อ่านไฟล์ Chemister ----------
+function readChemister(file){
+  if(!file) return;
+  const msg=document.getElementById('msg');
+  const rd=new FileReader();
+  rd.onload=e=>{
+    try{
+      const lines=e.target.result.split(/\r?\n/);
+      const mode=(lines.find(l=>l.startsWith('Mode'))||'').includes('Chronoamperometry')?'CA':'CV';
+      // หา header ตาราง Conversion
+      let hi=-1, cols=null;
+      for(let i=0;i<lines.length;i++){
+        if(lines[i].startsWith('Index\tTsamp')){hi=i;cols=lines[i].split('\t');break;}
+      }
+      if(hi<0) throw 'ไม่พบตารางข้อมูลในไฟล์';
+      const iT=cols.findIndex(c=>c.includes('Tsamp'));
+      const iI=cols.findIndex(c=>c.includes('Iwe'));
+      const pts=[];
+      for(let i=hi+1;i<lines.length;i++){
+        const p=lines[i].split('\t');
+        if(p.length>=cols.length-1&&/^\d+$/.test(p[0])) pts.push({t:+p[iT]/1000,I:+p[iI]});
+        else if(pts.length) break;
+      }
+      if(!pts.length) throw 'อ่านข้อมูลไม่ได้';
+      if(mode!=='CA'){msg.className='msg err';msg.textContent='ไฟล์นี้เป็น CV — งานวัดจริงใช้ไฟล์ CA ครับ';return;}
+      const win=pts.filter(p=>p.t>=READ_WIN[0]&&p.t<=READ_WIN[1]);
+      const use=win.length?win:pts.slice(-Math.min(10,pts.length));
+      const mean=use.reduce((s,p)=>s+p.I,0)/use.length;
+      document.getElementById('ua').value=mean.toFixed(4);
+      lastUA=mean; lastSrc='ไฟล์';
+      const c=convert(mean);
+      const fn=(lines.find(l=>l.startsWith('FILE'))||'').split('\t')[1]||file.name;
+      if(!document.getElementById('note').value) document.getElementById('note').value=fn;
+      applyConc(mean,`อ่านไฟล์แล้ว: เฉลี่ย ${READ_WIN[0]}-${READ_WIN[1]} วิ = ${mean.toFixed(4)} µA → ${Math.max(0,c).toFixed(2)} ppm (${use.length} จุด)`);
+    }catch(err){msg.className='msg err';msg.textContent='อ่านไฟล์ไม่สำเร็จ: '+err;}
+  };
+  rd.readAsText(file);
+}
+
+// ---------- บันทึก ----------
+function saveReading(){
+  const msg=document.getElementById('msg');
+  const v=parseFloat(document.getElementById('frc').value);
+  if(isNaN(v)||v<0){msg.className='msg err';msg.textContent='ยังไม่มีค่า FRC — แนบไฟล์หรือกรอกก่อนครับ';return;}
+  const dpdv=parseFloat(document.getElementById('dpd').value);
+  const pos=here||map.getCenter();
+  const r={frc:+v.toFixed(2),ua:lastUA,dpd:isNaN(dpdv)?null:+dpdv.toFixed(2),
+    note:document.getElementById('note').value.trim(),lat:pos.lat,lng:pos.lng,ts:Date.now(),src:lastSrc,
+    eq:lastUA!=null?CAL.name:null,eq_a:lastUA!=null?CAL.a:null,eq_b:lastUA!=null?CAL.b:null};
+  persist(r);
+  map.setView([r.lat,r.lng],Math.max(map.getZoom(),15));
+  msg.className='msg good';msg.textContent=`บันทึกแล้ว ${r.frc.toFixed(2)} ppm`+(r.dpd!=null?` (DPD ${r.dpd})`:'');
+  ['ua','frc','dpd','note'].forEach(id=>document.getElementById(id).value='');
+  lastUA=null;lastSrc='มือ';
+}
+
+// ---------- CSV ----------
+function downloadCSV(){
+  if(!readings.length) return;
+  const head='timestamp,frc_ppm,current_uA,dpd_ppm,note,lat,lng,source,equation,eq_a,eq_b\n';
+  const body=readings.map(r=>[new Date(r.ts).toISOString(),r.frc,r.ua??'',r.dpd??'',
+    '"'+(r.note||'').replace(/"/g,'""')+'"',r.lat.toFixed(6),r.lng.toFixed(6),r.src,
+    '"'+(r.eq||'')+'"',r.eq_a??'',r.eq_b??''].join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+head+body],{type:'text/csv'}));
+  a.download='frctap_log.csv';a.click();
+}
+
+// ---------- ตั้งค่าสมการ ----------
+let pendingEq=EQ_ID;
+function renderEqUI(){
+  const all=[...EQUATIONS.map(e=>e.id),'custom'];
+  document.getElementById('eqSel').innerHTML=all.map(id=>{const e=eqById(id);
+    return `<option value="${id}"${id===EQ_ID?' selected':''}>${e.name}</option>`;}).join('');
+  document.getElementById('eqList').innerHTML=all.map(id=>{const e=eqById(id);
+    const detail=id==='custom'?'แก้ a และ b ด้านล่างได้':
+      `<code>I = ${e.a} × C + (${e.b})</code><br>${e.strip} · โหมด${e.mode} · ใช้ได้ ${e.range[0]}–${e.range[1]} ppm<br>${e.info}`;
+    return `<label class="eqopt${id===pendingEq?' on':''}"><input type="radio" name="eq" value="${id}"${id===pendingEq?' checked':''} onchange="pickEq('${id}')">`+
+      `<div><b>${e.name}</b><span>${detail}</span></div></label>`;}).join('');
+  const e=eqById(pendingEq), editable=pendingEq==='custom';
+  const ia=document.getElementById('cal_a'), ib=document.getElementById('cal_b');
+  ia.value=e.a; ib.value=e.b; ia.disabled=ib.disabled=!editable;
+  document.getElementById('customBox').style.opacity=editable?1:.55;
+  showEq(e);
+  document.getElementById('modeLabel').textContent=`สมการ: ${CAL.name}`+(USE_FIREBASE&&fdb?' · เชื่อมระบบกลางแล้ว':'');
+}
+function pickEq(id){pendingEq=id;renderEqUI();}
+function openSettings(){pendingEq=EQ_ID;renderEqUI();document.getElementById('settings').classList.add('show');}
+function showEq(e){
+  e=e||CAL;
+  document.getElementById('eqShow').textContent=`I = ${e.a} × C + (${e.b})   →   C = (I − ${e.b}) ÷ ${e.a}`;
+}
+function selectEq(id){
+  EQ_ID=id;CAL=eqById(id);localStorage.setItem('frctap_eq',id);
+  pendingEq=id;renderEqUI();
+  if(lastUA!=null) applyConc(lastUA,`คำนวณใหม่ด้วยสมการ ${CAL.name}`);
+}
+function saveCal(){
+  if(pendingEq==='custom'){
+    const a=parseFloat(document.getElementById('cal_a').value), b=parseFloat(document.getElementById('cal_b').value);
+    if(isNaN(a)||a===0||isNaN(b)) return;
+    customCal={a,b};localStorage.setItem('frctap_cal',JSON.stringify(customCal));
+  }
+  selectEq(pendingEq);
+  document.getElementById('settings').classList.remove('show');
+}
+document.getElementById('cal_a').addEventListener('input',()=>{if(pendingEq==='custom')showEq({a:+cal_a.value,b:+cal_b.value});});
+document.getElementById('cal_b').addEventListener('input',()=>{if(pendingEq==='custom')showEq({a:+cal_a.value,b:+cal_b.value});});
+
+function toggleSheet(){document.getElementById('sheet').classList.toggle('open');
+  document.getElementById('sheet').classList.toggle('closed');}
+
+renderEqUI();
+initStore();
+</script>
+</body>
+</html>
