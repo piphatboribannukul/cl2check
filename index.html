@@ -97,7 +97,7 @@
 <div id="map"></div>
 
 <div class="topbar">
-  <div class="brand" onclick="openSettings()" title="ตั้งค่าสมการ"><b>FRCTap</b><span>v2.1.2 · แตะแบรนด์เพื่อตั้งค่า</span></div>
+  <div class="brand" onclick="openSettings()" title="ตั้งค่าสมการ"><b>FRCTap</b><span>v2.2 · แตะแบรนด์เพื่อตั้งค่า</span></div>
   <div class="statchip" id="stat">ยังไม่มีข้อมูล</div>
 </div>
 
@@ -182,6 +182,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 /* ============================================================
+   FRCTap v2.2 — 28 ก.ย. 2569 : เพิ่มสมการมหาสวัสดิ์ จุ่ม แผ่น #2 รวม 27–28 ก.ย. (ค่าเริ่มต้น)
    FRCTap v2.1 — 27 ก.ย. 2569 : เพิ่มตัวเลือกสมการ (บางเขน / มหาสวัสดิ์ หยด / จุ่ม / กำหนดเอง),
    เตือนค่านอกช่วง, บันทึกชื่อสมการคู่กับแต่ละจุด (popup + CSV)
    FRCTap v2 — 25 ก.ย. 2569
@@ -199,12 +200,14 @@ const READ_WIN=[8,12];                          // หน้าต่างอ�
 const EQUATIONS=[
   {id:'bk25',   name:'บางเขน · 25 ก.ย. 69', a:-0.1392, b:-0.0777, mode:'หยด', strip:'แผ่น #1',
    range:[0,1.6],  info:'R² 0.959 · 8 ระดับ วัดเดี่ยวต่อระดับ'},
-  {id:'ms27drop',name:'มหาสวัสดิ์ หยด · 27 ก.ย. 69', a:-0.0906, b:-0.0361, mode:'หยด', strip:'แผ่นที่ใช้ 27 ก.ย.',
+  {id:'ms27drop',name:'มหาสวัสดิ์ หยด · 27 ก.ย. 69', a:-0.0906, b:-0.0361, mode:'หยด', strip:'แผ่น #2',
    range:[0.14,0.49], info:'R² 0.89 · n = 12 · ยังไม่ผ่านการทดสอบข้ามวัน'},
-  {id:'ms27dip', name:'มหาสวัสดิ์ จุ่ม · 27 ก.ย. 69', a:-0.0930, b:-0.0238, mode:'จุ่ม', strip:'แผ่นที่ใช้ 27 ก.ย.',
-   range:[0.14,0.49], info:'R² 0.89 · n = 8 · ยังไม่ผ่านการทดสอบข้ามวัน'}
+  {id:'ms27dip', name:'มหาสวัสดิ์ จุ่ม · 27 ก.ย. 69', a:-0.0930, b:-0.0238, mode:'จุ่ม', strip:'แผ่น #2',
+   range:[0.14,0.49], info:'R² 0.89 · n = 8 · ยังไม่ผ่านการทดสอบข้ามวัน'},
+  {id:'ms2728dip',name:'มหาสวัสดิ์ จุ่ม · แผ่น #2 · 27–28 ก.ย.', a:-0.0787, b:-0.0266, mode:'จุ่ม', strip:'แผ่น #2',
+   range:[0,0.73], info:'R² 0.963 · n = 16 · 2 วัน · ±0.06 ppm · pH 7.3 · ทิ้งการแตะครั้งแรก'}
 ];
-const DEFAULT_EQ='bk25';
+const DEFAULT_EQ='ms2728dip';
 
 let customCal=JSON.parse(localStorage.getItem('frctap_cal')||'null');
 let EQ_ID=localStorage.getItem('frctap_eq')||(customCal&&(customCal.a!==-0.1392||customCal.b!==-0.0777)?'custom':DEFAULT_EQ);
