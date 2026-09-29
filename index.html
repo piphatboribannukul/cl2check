@@ -86,6 +86,15 @@
   .eqbar{display:flex;align-items:center;gap:8px;margin-bottom:9px;font-size:12.5px;color:#5b7784}
   .eqbar select{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:7px 9px;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--deep);background:#fff}
   .msg.warn{color:var(--high)}
+  .calbtn{width:100%;border:1.5px dashed var(--prapa);background:#F4FAFD;color:var(--prapa);border-radius:12px;padding:9px;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;margin-bottom:10px}
+  .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+  .cgrid .field{margin:0}
+  .cgrid select{border:0;background:none;font-family:inherit;font-size:15px;font-weight:600;color:var(--deep);width:100%;padding:0;outline:none}
+  .cres{background:#0F3445;color:#fff;border-radius:12px;padding:10px 12px;margin:4px 0 10px;font-size:12.5px;line-height:1.6;color:#9FC3D1}
+  .cres b{color:#fff;font-size:17px;font-variant-numeric:tabular-nums}
+  .cres .bad{color:#FF8A7A}.cres .ok{color:#6FD6B5}
+  .linkbtn{border:0;background:none;color:var(--prapa);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline}
+  .eqopt .del{margin-left:auto;border:0;background:none;color:#b0473a;font-size:15px;cursor:pointer;padding:0 2px;align-self:flex-start}
   .eqcard{margin-top:6px}
   .eqcard .f{font-size:14.5px;font-weight:700;color:var(--deep);letter-spacing:.2px}
   .eqcard .inv{font-size:13px;color:var(--prapa);font-weight:600}
@@ -132,7 +141,7 @@
 <div id="map"></div>
 
 <div class="topbar">
-  <div class="brand" onclick="openSettings()" title="ตั้งค่าสมการ"><b>FRCTap</b><span>v2.4 · แตะเพื่อตั้งค่า</span></div>
+  <div class="brand" onclick="openSettings()" title="ตั้งค่าสมการ"><b>FRCTap</b><span>v2.5 · แตะเพื่อตั้งค่า</span></div>
   <div class="statchip" id="stat">ยังไม่มีข้อมูล</div>
 </div>
 
@@ -153,6 +162,7 @@
     <div class="eqbar">สมการ
       <select id="eqSel" onchange="selectEq(this.value)"></select>
     </div>
+    <button class="calbtn" onclick="openCalib()">＋ ปรับจุดเดียว (แผ่นใหม่ / เริ่มรอบใหม่)</button>
     <details class="eqd"><summary id="eqSum"></summary><div class="eqcard" id="eqCard"></div></details>
 
     <div class="device">
@@ -213,6 +223,7 @@
     <p>I (µA) = m × C (ppm) + c — เลือกตามแหล่งน้ำที่วัด</p>
     <div class="eqlist" id="eqList"></div>
     <div class="eq" id="eqShow" style="margin-top:10px"></div>
+    <button class="calbtn" onclick="document.getElementById('settings').classList.remove('show');openCalib()">＋ ปรับจุดเดียว สร้างสมการของแผ่น</button>
     <div class="btns" style="margin-top:4px">
       <button class="save" onclick="saveCal()">บันทึกสมการ</button>
       <button class="ghost" onclick="document.getElementById('settings').classList.remove('show')">ปิด</button>
@@ -220,9 +231,29 @@
   </div>
 </div>
 
+<div class="modal" id="calib">
+  <div class="mcard">
+    <h3>ปรับจุดเดียว</h3>
+    <p>วัดน้ำอ้างอิง 1 ตัวอย่างคู่กับ DPD แล้วคำนวณ m ของแผ่นนี้ โดยคง c ของสมการฐานไว้ · ใช้เมื่อเปิดแผ่นใหม่ (หลังแตะปรับสภาพ 6–8 ครั้ง) หรือเริ่มวัดรอบใหม่</p>
+    <div class="cgrid">
+      <div class="field"><label>แผ่นเบอร์</label><input id="cStrip" type="text" inputmode="numeric" placeholder="4" oninput="calcCalib()"></div>
+      <div class="field"><label>สมการฐาน (ใช้ c)</label><select id="cBase" onchange="calcCalib()"></select></div>
+      <div class="field"><label>DPD น้ำอ้างอิง (ppm)</label><input id="cDpd" type="number" step="0.01" inputmode="decimal" placeholder="0.56" oninput="calcCalib()"></div>
+      <div class="field"><label>กระแสเฉลี่ย (µA)</label><input id="cUa" type="number" step="0.0001" inputmode="decimal" placeholder="-0.0890" oninput="calcCalib()"></div>
+    </div>
+    <button class="linkbtn" onclick="fillCalibFromForm()">ใช้กระแสและ DPD ที่กรอกอยู่ในหน้าบันทึก</button>
+    <div class="cres" id="cRes">กรอกค่า DPD และกระแสของน้ำอ้างอิง</div>
+    <div class="btns">
+      <button class="save" id="cSave" onclick="saveCalib()" disabled>บันทึกและใช้สมการนี้</button>
+      <button class="ghost" onclick="document.getElementById('calib').classList.remove('show')">ปิด</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 /* ============================================================
+   FRCTap v2.5 — 29 ก.ย. 2569 : ปรับจุดเดียว (one-point slope) สร้างสมการรายแผ่น คง c ของสมการฐาน, ลบสมการที่สร้างเองได้
    FRCTap v2.4 — 28 ก.ย. 2569 : จอแสดงผลแบบเครื่องวัด (สเกลเกณฑ์ + เข็ม), แก้แผนที่ (ถอด CARTO → OSM/Esri)
    FRCTap v2.3 — 28 ก.ย. 2569 : เหลือ 2 สมการ บางเขน / มหาสวัสดิ์ (รวมแผ่น #1–3) + แสดง m, c สำหรับแอป Chemister
    FRCTap v2.2 — 28 ก.ย. 2569 : เพิ่มสมการมหาสวัสดิ์ จุ่ม แผ่น #2 รวม 27–28 ก.ย. (ค่าเริ่มต้น)
@@ -247,9 +278,13 @@ const EQUATIONS=[
    range:[0,0.73], info:'R² 0.893 · n = 39 · ±0.08 ppm · pH 7.3 · ทิ้งการแตะครั้งแรก'}
 ];
 const DEFAULT_EQ='ms';
+// สมการที่ผู้ใช้สร้างจาก "ปรับจุดเดียว" (เก็บในเครื่อง)
+let USER_EQS=[];
+try{USER_EQS=JSON.parse(localStorage.getItem('frctap_usereqs')||'[]')}catch(e){USER_EQS=[]}
+const allEqs=()=>[...EQUATIONS,...USER_EQS];
 let EQ_ID=localStorage.getItem('frctap_eq');
-if(!EQUATIONS.some(e=>e.id===EQ_ID)) EQ_ID=(EQ_ID==='bk25')?'bk25':DEFAULT_EQ;   // สมการเก่าที่ถูกถอดออก → มหาสวัสดิ์
-function eqById(id){ return EQUATIONS.find(e=>e.id===id)||EQUATIONS[0]; }
+if(!allEqs().some(e=>e.id===EQ_ID)) EQ_ID=(EQ_ID==='bk25')?'bk25':DEFAULT_EQ;   // สมการเก่าที่ถูกถอดออก → มหาสวัสดิ์
+function eqById(id){ return allEqs().find(e=>e.id===id)||EQUATIONS.find(e=>e.id===DEFAULT_EQ); }
 const mc=e=>`m = ${e.a}, c = ${e.b}`;
 let CAL=eqById(EQ_ID);
 
@@ -439,14 +474,15 @@ function downloadCSV(){
 // ---------- ตั้งค่าสมการ ----------
 let pendingEq=EQ_ID;
 function renderEqUI(){
-  const all=EQUATIONS.map(e=>e.id);
+  const all=allEqs().map(e=>e.id);
   document.getElementById('eqSel').innerHTML=all.map(id=>{const e=eqById(id);
     return `<option value="${id}"${id===EQ_ID?' selected':''}>${e.name}</option>`;}).join('');
   document.getElementById('eqList').innerHTML=all.map(id=>{const e=eqById(id);
     const detail=
       `<code>I = ${e.a} × C + (${e.b}) &nbsp;(${mc(e)})</code><br>${e.strip} · โหมด${e.mode} · ใช้ได้ ${e.range[0]}–${e.range[1]} ppm<br>${e.info}`;
     return `<label class="eqopt${id===pendingEq?' on':''}"><input type="radio" name="eq" value="${id}"${id===pendingEq?' checked':''} onchange="pickEq('${id}')">`+
-      `<div><b>${e.name}</b><span>${detail}</span></div></label>`;}).join('');
+      `<div><b>${e.name}</b><span>${detail}</span></div>`+
+      (e.user?`<button class="del" title="ลบสมการนี้" onclick="event.preventDefault();delUserEq('${id}')">✕</button>`:'')+`</label>`;}).join('');
   const e=eqById(pendingEq);
   showEq(e);
   const k=CAL, sg=v=>v<0?`− ${Math.abs(v)}`:`+ ${v}`;
@@ -472,6 +508,57 @@ function selectEq(id){
 function saveCal(){
   selectEq(pendingEq);
   document.getElementById('settings').classList.remove('show');
+}
+
+// ---------- ปรับจุดเดียว ----------
+const TH_MON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+let calibDraft=null;
+function openCalib(){
+  const base=EQUATIONS.find(e=>e.id===CAL.id)?CAL.id:(CAL.baseId||DEFAULT_EQ);
+  document.getElementById('cBase').innerHTML=EQUATIONS.map(e=>
+    `<option value="${e.id}"${e.id===base?' selected':''}>${e.name.split(' (')[0]}</option>`).join('');
+  calcCalib();
+  document.getElementById('calib').classList.add('show');
+}
+function fillCalibFromForm(){
+  const d=parseFloat(document.getElementById('dpd').value);
+  if(lastUA!=null) document.getElementById('cUa').value=lastUA.toFixed(4);
+  if(!isNaN(d)) document.getElementById('cDpd').value=d;
+  calcCalib();
+}
+function calcCalib(){
+  const base=EQUATIONS.find(e=>e.id===document.getElementById('cBase').value)||EQUATIONS[0];
+  const C=parseFloat(document.getElementById('cDpd').value), I=parseFloat(document.getElementById('cUa').value);
+  const strip=document.getElementById('cStrip').value.trim(), out=document.getElementById('cRes'), btn=document.getElementById('cSave');
+  calibDraft=null;btn.disabled=true;
+  if(isNaN(C)||isNaN(I)){out.innerHTML='กรอกค่า DPD และกระแสของน้ำอ้างอิง';return;}
+  if(C<=0.05){out.innerHTML='<span class="bad">DPD ต่ำเกินไป — จุดอ้างอิงต้องมีคลอรีน ควร 0.3 ppm ขึ้นไป</span>';return;}
+  if(I>=base.b){out.innerHTML=`<span class="bad">กระแสต้องติดลบมากกว่า c ของสมการฐาน (${base.b} µA) — ตรวจว่ากรอกเครื่องหมายลบหรือเลือกสมการฐานถูกหรือไม่</span>`;return;}
+  const m=+((I-base.b)/C).toFixed(4), diff=Math.round((m/base.a-1)*100);
+  const warn=C<0.3?'<br><span class="bad">จุดอ้างอิงต่ำกว่า 0.3 ppm — slope จะคลาดง่าย ถ้าได้ควรใช้น้ำ 0.4–0.8 ppm</span>':'';
+  out.innerHTML=`m = <b>${m}</b> &nbsp; c = <b>${base.b}</b><br>`+
+    `<span class="${Math.abs(diff)>60?'bad':'ok'}">ความไว ${diff>=0?'+':''}${diff}% เทียบกับสมการ${base.name.split(' (')[0]}</span>`+
+    `<br>ตั้งในแอป Chemister: m = ${m}, C = ${base.b}${warn}`+(strip?'':'<br><span class="bad">ใส่เบอร์แผ่นก่อนบันทึก</span>');
+  if(!strip) return;
+  const now=new Date(), dstr=`${now.getDate()} ${TH_MON[now.getMonth()]} ${(now.getFullYear()+543)%100}`;
+  calibDraft={id:'u'+now.getTime(), user:true, baseId:base.id,
+    name:`แผ่น #${strip} · ${base.name.split(' (')[0]} (${dstr})`, a:m, b:base.b, mode:'จุ่ม', strip:`แผ่น #${strip}`,
+    range:[0, Math.max(0.8, +(C*1.5).toFixed(1))],
+    info:`ปรับจุดเดียว: DPD ${C} ppm, I ${I} µA · c จากสมการ${base.name.split(' (')[0]}`};
+  btn.disabled=false;
+}
+function saveCalib(){
+  if(!calibDraft) return;
+  USER_EQS.push(calibDraft);
+  try{localStorage.setItem('frctap_usereqs',JSON.stringify(USER_EQS))}catch(e){}
+  document.getElementById('calib').classList.remove('show');
+  selectEq(calibDraft.id);
+}
+function delUserEq(id){
+  const e=USER_EQS.find(x=>x.id===id); if(!e||!confirm(`ลบสมการ "${e.name}" ?`)) return;
+  USER_EQS=USER_EQS.filter(x=>x.id!==id);
+  try{localStorage.setItem('frctap_usereqs',JSON.stringify(USER_EQS))}catch(err){}
+  if(EQ_ID===id) selectEq(DEFAULT_EQ); else {if(pendingEq===id) pendingEq=EQ_ID; renderEqUI();}
 }
 
 function toggleSheet(){document.getElementById('sheet').classList.toggle('open');
